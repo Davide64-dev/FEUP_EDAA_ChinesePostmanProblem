@@ -49,3 +49,12 @@ class RouteNetwork:
         print(f"\nSample of {n} edges:")
         for u, v, key, data in list(self.graph.edges(keys=True, data=True))[:n]:
             print(f"{u} -> {v} via {key}, airline: {data['airline']}")
+
+    def check_if_euler_path_exists(self):
+        odd_degree_nodes_count = 0
+        for node, degree in self.graph.degree():
+            if degree % 2 == 1:
+                odd_degree_nodes_count += 1
+        # An Eulerian path exists if there are exactly 0 or 2 vertices of odd degree
+        return odd_degree_nodes_count in [0, 2]
+    
