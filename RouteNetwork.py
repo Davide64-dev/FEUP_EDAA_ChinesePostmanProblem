@@ -58,3 +58,25 @@ class RouteNetwork:
         # An Eulerian path exists if there are exactly 0 or 2 vertices of odd degree
         return odd_degree_nodes_count in [0, 2]
     
+    def find_euler_path(self):
+        if not self.check_if_euler_path_exists():
+            print("No Eulerian path exists in the graph.")
+            return None
+
+        # Find an Eulerian path using Hierholzer's algorithm
+        stack = []
+        circuit = []
+        current_node = list(self.graph.nodes())[0]
+        while stack or self.graph.degree(current_node) > 0:
+            if self.graph.degree(current_node) == 0:
+                circuit.append(current_node)
+                current_node = stack.pop()
+            else:
+                stack.append(current_node)
+                next_edge = next(self.graph.edges(current_node, keys=True))
+                self.graph.remove_edge(next_edge[0], next_edge[1], key=next_edge[2])
+                current_node = next_edge[1]
+        circuit.append(current_node)
+        circuit.reverse()
+        return circuit
+    

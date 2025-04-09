@@ -8,6 +8,7 @@ def main():
     network.load_airlines('dataset/airlines.csv')
     network.load_routes('dataset/flights.csv')
     network.print_sample_edges()
+    print(network.check_if_euler_path_exists())
 
 
 if __name__ == "__main__":
