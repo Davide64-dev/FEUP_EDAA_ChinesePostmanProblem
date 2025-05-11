@@ -1,18 +1,32 @@
 import csv
 
-import networkx as nx
 import numpy as np
 from pulp import PULP_CBC_CMD, LpBinary, LpMinimize, LpProblem, LpVariable, lpSum
 
 from Airline import Airline
 from Airport import Airport
+from multigraph import MultiGraph
 
 
 class RouteNetwork:
     def __init__(self):
         self.airports = {}
         self.airlines = {}
-        self.graph = nx.MultiGraph()
+        self.graph = MultiGraph()
+
+    @staticmethod
+    def from_edge_list(filepath: str) -> "RouteNetwork":
+        self = RouteNetwork()
+        # the first line of the file is the number of nodes
+        # the rest of the lines are edges, separated by spaces
+        with open(filepath, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+            n_nodes = int(lines[0].strip())
+            self.graph.add_nodes_from(range(n_nodes))
+            for line in lines[1:]:
+                u, v = map(int, line.strip().split())
+                self.graph.add_edge(u, v)
+        return self
 
     def load_airports(self, filepath):
         with open(filepath, newline="", encoding="utf-8") as f:
@@ -49,9 +63,7 @@ class RouteNetwork:
                 airline_code = row["Airline"]
 
                 if source in self.airports and target in self.airports:
-                    self.graph.add_edge(
-                        source, target, key=airline_code, airline=airline_code
-                    )
+                    self.graph.add_edge(source, target, airline=airline_code)
 
     def print_sample_edges(self, n=5):
         print(f"\nSample of {n} edges:")
@@ -60,7 +72,7 @@ class RouteNetwork:
 
     def check_if_euler_path_exists(self):
         odd_degree_nodes_count = 0
-        degrees = np.array([degree for _, degree in self.graph.degree()])
+        degrees = np.array([degree for _, degree in self.graph.degree()])  # type: ignore
         odd_degree_nodes_count = np.sum(degrees % 2 == 1)
         # An Eulerian path exists if there are exactly 0 or 2 vertices of odd degree
         return odd_degree_nodes_count in [0, 2]
@@ -74,13 +86,13 @@ class RouteNetwork:
         stack = []
         circuit = []
         current_node = list(self.graph.nodes())[0]
-        while stack or self.graph.degree(current_node) > 0:
+        while stack or self.graph.degree(current_node) > 0:  # type: ignore
             if self.graph.degree(current_node) == 0:
                 circuit.append(current_node)
                 current_node = stack.pop()
             else:
                 stack.append(current_node)
-                next_edge = next(self.graph.edges(current_node, keys=True))
+                next_edge = next(self.graph.edges(current_node, keys=True))  # type: ignore
                 self.graph.remove_edge(next_edge[0], next_edge[1], key=next_edge[2])
                 current_node = next_edge[1]
         circuit.append(current_node)
@@ -96,13 +108,13 @@ class RouteNetwork:
         stack = []
         circuit = []
         current_node = list(self.graph.nodes())[0]
-        while stack or self.graph.degree(current_node) > 0:
+        while stack or self.graph.degree(current_node) > 0:  # type: ignore
             if self.graph.degree(current_node) == 1:
                 circuit.append(current_node)
                 current_node = stack.pop()
             else:
                 stack.append(current_node)
-                next_edge = next(self.graph.edges(current_node, keys=True))
+                next_edge = next(self.graph.edges(current_node, keys=True))  # type: ignore
                 self.graph.remove_edge(next_edge[0], next_edge[1], key=next_edge[2])
                 current_node = next_edge[1]
         circuit.append(current_node)
@@ -142,7 +154,7 @@ class RouteNetwork:
                 break
 
             # Heuristic: prefer edges to nodes with lower remaining degree
-            next_edge = min(neighbors, key=lambda e: self.graph.degree(e[1]))
+            next_edge = min(neighbors, key=lambda e: self.graph.degree(e[1]))  # type: ignore
 
             visited_edges.add(next_edge)
             current_node = next_edge[1]
