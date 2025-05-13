@@ -1,0 +1,4 @@
+1 => path, circuit
+2 => path, no circuit
+3 => path, circuit
+4 => path, no circuit
