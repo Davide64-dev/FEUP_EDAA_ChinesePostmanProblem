@@ -6,6 +6,7 @@ from pulp import PULP_CBC_CMD, LpBinary, LpMinimize, LpProblem, LpVariable, lpSu
 from Airline import Airline
 from Airport import Airport
 from multigraph import MultiGraph
+from visualizer import Visualizer
 
 
 class RouteNetwork:
@@ -77,29 +78,64 @@ class RouteNetwork:
         # An Eulerian path exists if there are exactly 0 or 2 vertices of odd degree
         return odd_degree_nodes_count in [0, 2]
 
-    def find_euler_path_hierholzer(self):
+    def find_euler_path_hierholzer(self, visualizer: Visualizer | None = None):
         if not self.check_if_euler_path_exists():
             print("No Eulerian path exists in the graph.")
             return None
 
-        # Find an Eulerian path using Hierholzer's algorithm
         stack = []
         circuit = []
+        edge_stack = []  # Track used edges for visualization
 
+        # Start at a node with odd degree (if any), otherwise arbitrary
         odd_nodes = [node for node, degree in self.graph.degree() if degree % 2 == 1]
-        current_node = (
-            odd_nodes[0] if len(odd_nodes) > 0 else list(self.graph.nodes())[0]
-        )
+        current_node = odd_nodes[0] if odd_nodes else list(self.graph.nodes())[0]
 
+        if visualizer:
+            visualizer.draw_frame(current_node, text=f"Start at node {current_node}")
+
+        while stack or self.graph.degree(current_node) > 0:
             if self.graph.degree(current_node) == 0:
                 circuit.append(current_node)
+                previous_node = current_node
                 current_node = stack.pop()
+                u, v, k = edge_stack.pop()
+
+                # Mark the finalized edge green
+                if visualizer:
+                    visualizer.update_edge_color(u, v, k, "green")
+                    visualizer.draw_frame(
+                        current_node,
+                        text=f"Backtrack from {previous_node} to {current_node} (finalize edge)",
+                    )
             else:
                 stack.append(current_node)
                 next_edge = next(self.graph.edges(current_node, keys=True))  # type: ignore
-                self.graph.remove_edge(next_edge[0], next_edge[1], key=next_edge[2])
-                current_node = next_edge[1]
+                u, v, k = next_edge
+
+                # Remove the used edge
+                self.graph.remove_edge(u, v, key=k)
+
+                # Track it for later coloring
+                edge_stack.append((u, v, k))
+
+                if visualizer:
+                    visualizer.update_edge_color(u, v, k, "blue")  # Actively traversed
+                    visualizer.draw_frame(
+                        v,
+                        text=f"Traverse edge {u} → {v} (key={k})",
+                    )
+
+                current_node = v
+
+        # Append the last node and finalize the last frame
         circuit.append(current_node)
+        if visualizer:
+            visualizer.draw_frame(
+                text=f"End at {current_node}. Eulerian path complete.",
+            )
+            visualizer.make_gif()
+
         circuit.reverse()
         return circuit
 
