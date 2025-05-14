@@ -178,6 +178,10 @@ class MultiGraph:
             return len(self._adjacency[u][v])
         return 0
 
+    def get_edge_data(self, u, v, default=None):
+        """Mimic NetworkX's get_edge_data for MultiGraphs."""
+        return self._adjacency.get(u, {}).get(v, default if default is not None else {})
+
     @property
     def is_multigraph(self) -> bool:
         """Always True for this implementation."""
