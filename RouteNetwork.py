@@ -85,8 +85,12 @@ class RouteNetwork:
         # Find an Eulerian path using Hierholzer's algorithm
         stack = []
         circuit = []
-        current_node = list(self.graph.nodes())[0]
-        while stack or self.graph.degree(current_node) > 0:  # type: ignore
+
+        odd_nodes = [node for node, degree in self.graph.degree() if degree % 2 == 1]
+        current_node = (
+            odd_nodes[0] if len(odd_nodes) > 0 else list(self.graph.nodes())[0]
+        )
+
             if self.graph.degree(current_node) == 0:
                 circuit.append(current_node)
                 current_node = stack.pop()
@@ -107,7 +111,12 @@ class RouteNetwork:
         # Find an Eulerian path using Fleury's algorithm
         stack = []
         circuit = []
-        current_node = list(self.graph.nodes())[0]
+
+        odd_nodes = [node for node, degree in self.graph.degree() if degree % 2 == 1]
+        current_node = (
+            odd_nodes[0] if len(odd_nodes) > 0 else list(self.graph.nodes())[0]
+        )
+
         while stack or self.graph.degree(current_node) > 0:  # type: ignore
             if self.graph.degree(current_node) == 1:
                 circuit.append(current_node)
