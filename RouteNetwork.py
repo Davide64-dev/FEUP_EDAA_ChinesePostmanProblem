@@ -170,21 +170,25 @@ class RouteNetwork:
         """Implementation agnostic method to find an Eulerian path."""
         return self.find_euler_path_hierholzer()
 
-    def csp_find_euler_path(self):
+    def csp_find_euler_path(self, visualizer: Visualizer | None = None):
         """
         Attempts to find an Eulerian path using a constraint satisfaction approach.
         If the graph has an Eulerian path, it computes and returns it directly.
         Otherwise, it uses a greedy heuristic that respects degree constraints to approximate a path.
+        Visualization highlights traversal and decisions.
         """
         if self.check_if_euler_path_exists():
             print("The graph has an Eulerian path. Finding it...")
-            return self.find_euler_path()
+            return self.find_euler_path(visualizer)  # Reuse existing visualized version
 
         print("The graph is not Eulerian. Using CSP-inspired heuristic method...")
 
         current_node = list(self.graph.nodes())[0]
         visited_edges = set()
         path = [current_node]
+
+        if visualizer:
+            visualizer.draw_frame(current_node, text=f"Start at node {current_node}")
 
         while len(visited_edges) < self.graph.number_of_edges():
             # Only consider edges not yet visited
@@ -195,16 +199,38 @@ class RouteNetwork:
             ]
 
             if not neighbors:
-                print("Dead end reached. No more unvisited edges.")
+                if visualizer:
+                    visualizer.draw_frame(
+                        current_node,
+                        text="Dead end reached — no unvisited edges.",
+                    )
                 break
 
-            # Heuristic: prefer edges to nodes with lower remaining degree
+            # Heuristic: prefer edge to node with lowest remaining degree
             next_edge = min(neighbors, key=lambda e: self.graph.degree(e[1]))  # type: ignore
+            u, v, k = next_edge
 
             visited_edges.add(next_edge)
-            current_node = next_edge[1]
-            path.append(current_node)
+            path.append(v)
 
+            if visualizer:
+                visualizer.update_edge_color(u, v, k, "blue")
+                visualizer.draw_frame(
+                    v,
+                    text=f"Traverse edge {u} → {v} (key={k})",
+                )
+                visualizer.update_edge_color(u, v, k, "green")
+
+            current_node = v
+
+        if visualizer:
+            visualizer.draw_frame(
+                current_node,
+                text=f"End at node {current_node}. Heuristic path complete.",
+            )
+            visualizer.make_gif()
+
+        print(path)
         return path
 
     def ilp_find_euler_path(self):
