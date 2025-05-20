@@ -233,67 +233,83 @@ class RouteNetwork:
         print(path)
         return path
 
-    def ilp_find_euler_path(self):
-        """
-        Attempts to find an Eulerian path using Integer Linear Programming (ILP).
-        If the graph has an Eulerian path, it returns it directly.
-        Otherwise, solves an ILP to approximate the minimum-cost traversal covering all edges.
-        """
-        if self.check_if_euler_path_exists():
-            print("The graph has an Eulerian path. Finding it...")
-            return self.find_euler_path()
+def ilp_find_euler_path(self):
+    """
+    Approximates an Eulerian path using ILP, allowing traversing some edges multiple times
+    if needed to ensure all edges are covered.
+    """
+    from collections import defaultdict
+    from pulp import LpProblem, LpVariable, LpMinimize, lpSum, LpBinary, PULP_CBC_CMD
 
-        print(
-            "The graph is not Eulerian. Solving ILP to approximate an optimal path..."
-        )
+    print("Solving ILP to approximate Eulerian path...")
 
-        # ILP model
-        prob = LpProblem("EulerianPathILP", LpMinimize)
+    G = self.graph
 
-        # Decision variables: x[u,v,k] == 1 if edge (u,v,k) is in the path
-        edge_vars = {
-            (u, v, k): LpVariable(f"x_{u}_{v}_{k}", cat=LpBinary)
-            for u, v, k in self.graph.edges(keys=True)
-        }
+    # ILP problem
+    prob = LpProblem("ApproximateEulerianPath", LpMinimize)
 
-        # Objective: minimize total number of edges (can be adjusted to minimize weight)
-        prob += lpSum(edge_vars[e] for e in edge_vars)
+    # Create binary variables for each edge (u,v,k)
+    edge_vars = {
+        (u, v, k): LpVariable(f"x_{u}_{v}_{k}", cat=LpBinary)
+        for u, v, k in G.edges(keys=True)
+    }
 
-        # Constraints: each edge must be used exactly once
-        for u, v, k in self.graph.edges(keys=True):
-            prob += edge_vars[(u, v, k)] == 1
+    # Objective: minimize number of edges traversed
+    prob += lpSum(edge_vars[e] for e in edge_vars)
 
-        # Optional: degree balance constraints (flow conservation)
-        for node in self.graph.nodes():
-            in_edges = [e for e in edge_vars if e[1] == node]
-            out_edges = [e for e in edge_vars if e[0] == node]
-            prob += lpSum(edge_vars[e] for e in in_edges) == lpSum(
-                edge_vars[e] for e in out_edges
-            )
+    # Allow each edge to be used at most once (relax to ≤ 1 instead of == 1)
+    for e in edge_vars:
+        prob += edge_vars[e] <= 1
 
-        # Solve the ILP
-        prob.solve(PULP_CBC_CMD(msg=False))
+    # Flow conservation constraints: in-degree = out-degree for most nodes
+    # Allow imbalance of one for up to two nodes (start and end)
+    in_degrees = defaultdict(list)
+    out_degrees = defaultdict(list)
+    for u, v, k in edge_vars:
+        out_degrees[u].append(edge_vars[(u, v, k)])
+        in_degrees[v].append(edge_vars[(u, v, k)])
 
-        # Extract the path
-        used_edges = [e for e in edge_vars if edge_vars[e].varValue == 1]
-        if not used_edges:
-            print("ILP solver found no valid solution.")
-            return []
+    imbalances = {}
+    for node in G.nodes():
+        in_sum = lpSum(in_degrees[node])
+        out_sum = lpSum(out_degrees[node])
+        imbalance = LpVariable(f"imbalance_{node}", lowBound=-1, upBound=1, cat="Integer")
+        imbalances[node] = imbalance
+        prob += out_sum - in_sum == imbalance
 
-        # Reconstruct the path by chaining edges
-        from collections import defaultdict
+    # At most 1 node with imbalance of +1 and one with -1
+    prob += lpSum((imb == 1) for imb in imbalances.values()) <= 1
+    prob += lpSum((imb == -1) for imb in imbalances.values()) <= 1
 
-        edge_map = defaultdict(list)
-        for u, v, k in used_edges:
-            edge_map[u].append((v, k))
+    # Solve the problem
+    prob.solve(PULP_CBC_CMD(msg=True))
 
-        start_node = used_edges[0][0]
-        path = [start_node]
-        current_node = start_node
+    # Check if feasible
+    if prob.status != 1:
+        print("No feasible path found by ILP.")
+        return []
 
-        while edge_map[current_node]:
-            next_node, _ = edge_map[current_node].pop(0)
-            path.append(next_node)
-            current_node = next_node
+    # Extract used edges
+    used_edges = [e for e in edge_vars if edge_vars[e].varValue == 1]
+    if not used_edges:
+        print("No edges selected in solution.")
+        return []
 
-        return path
+    # Reconstruct path
+    edge_map = defaultdict(list)
+    for u, v, k in used_edges:
+        edge_map[u].append((v, k))
+
+    # Start from a node with imbalance +1 or use first node
+    start_candidates = [n for n in G.nodes() if imbalances[n].varValue == 1]
+    start_node = start_candidates[0] if start_candidates else used_edges[0][0]
+
+    path = [start_node]
+    current = start_node
+    while edge_map[current]:
+        next_node, _ = edge_map[current].pop()
+        path.append(next_node)
+        current = next_node
+
+    return path
+
