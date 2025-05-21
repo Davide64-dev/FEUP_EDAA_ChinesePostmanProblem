@@ -1,12 +1,15 @@
 import csv
 
 import numpy as np
-from pulp import PULP_CBC_CMD, LpBinary, LpMinimize, LpProblem, LpVariable, lpSum
+
+from pulp import PULP_CBC_CMD, LpBinary, LpMinimize, LpProblem, LpVariable, lpSum, LpInteger
 
 from Airline import Airline
 from Airport import Airport
 from multigraph import MultiGraph
 from visualizer import Visualizer
+from collections import defaultdict, deque
+import networkx as nx
 
 
 class RouteNetwork:
@@ -233,85 +236,40 @@ class RouteNetwork:
         print(path)
         return path
 
-    def ilp_find_euler_path(self):
-        """
-        Approximates an Eulerian path using ILP, allowing traversing some edges multiple times
-        if needed to ensure all edges are covered. Always finds a solution if the graph is connected.
-        """
-        from collections import defaultdict
-        from pulp import LpProblem, LpVariable, LpMinimize, lpSum, LpInteger, PULP_CBC_CMD
 
-        print("Solving ILP to approximate Eulerian path...")
+    def simple_approx_eulerian_path(self):
+        """
+        Simple approximation: 
+        - Pair odd-degree nodes arbitrarily.
+        - Add edges between each pair.
+        - Then find Eulerian path.
+        """
 
         G = self.graph
 
-        # ILP problem
-        prob = LpProblem("ApproximateEulerianPath", LpMinimize)
+        # Step 1: Find odd-degree nodes
+        odd_nodes = [v for v in G.nodes() if G.degree(v) % 2 == 1]
 
-        # Allow traversing each edge up to max_times (set high enough)
-        max_times = G.number_of_edges()  # Safe upper bound
+        # Step 2: Pair nodes in order and add edges
+        # If odd number of odd nodes, this will not be a perfect solution
+        # but usually graphs have even number of odd nodes
+        for i in range(0, len(odd_nodes), 2):
+            if i+1 < len(odd_nodes):
+                u, v = odd_nodes[i], odd_nodes[i+1]
+                # Add an edge between u and v (this is a "virtual" edge if original edge doesn't exist)
+                G.add_edge(u, v)
 
-        # Create integer variables for each edge (u,v,k)
-        edge_vars = {
-            (u, v, k): LpVariable(f"x_{u}_{v}_{k}", lowBound=0, upBound=max_times, cat=LpInteger)
-            for u, v, k in G.edges(keys=True)
-        }
+        # Step 3: Now graph should be Eulerian
+        # Use NetworkX built-in Eulerian path finder
 
-        # Objective: minimize total traversals (prefer not to repeat edges)
-        prob += lpSum(edge_vars[e] for e in edge_vars)
+        temp = RouteNetwork()
 
-        # Each edge must be traversed at least once (cover all edges)
-        for e in edge_vars:
-            prob += edge_vars[e] >= 1
-
-        # Flow conservation constraints: in-degree = out-degree for most nodes
-        in_degrees = defaultdict(list)
-        out_degrees = defaultdict(list)
-        for u, v, k in edge_vars:
-            out_degrees[u].append(edge_vars[(u, v, k)])
-            in_degrees[v].append(edge_vars[(u, v, k)])
-
-        # Allow imbalance of one for up to two nodes (start and end)
-        imbalances = {}
-        for node in G.nodes():
-            in_sum = lpSum(in_degrees[node])
-            out_sum = lpSum(out_degrees[node])
-            imbalance = LpVariable(f"imbalance_{node}", lowBound=-1, upBound=1, cat="Integer")
-            imbalances[node] = imbalance
-            prob += out_sum - in_sum == imbalance
-
-        # At most 1 node with imbalance of +1 and one with -1
-        prob += lpSum((imb == 1) for imb in imbalances.values()) <= 1
-        prob += lpSum((imb == -1) for imb in imbalances.values()) <= 1
-
-        # Solve the problem
-        prob.solve(PULP_CBC_CMD(msg=False))
-
-        # Extract used edges (with positive traversals)
-        used_edges = []
-        for e in edge_vars:
-            count = int(round(edge_vars[e].varValue or 0))
-            used_edges.extend([e] * count)
-
-        if not used_edges:
-            print("No edges selected in solution.")
+        temp.graph = G
+        if temp.check_if_euler_path_exists():
+            path = list(temp.find_euler_path_hierholzer())
+            return path
+        else:
+            # fallback - no Eulerian path possible (very rare here)
+            print("Graph is not Eulerian after simple augmentation.")
             return []
-
-        # Reconstruct path (may repeat edges)
-        edge_map = defaultdict(list)
-        for u, v, k in used_edges:
-            edge_map[u].append((v, k))
-
-        # Start from a node with imbalance +1 or use first node
-        start_candidates = [n for n in G.nodes() if abs(imbalances[n].varValue or 0) == 1]
-        start_node = start_candidates[0] if start_candidates else used_edges[0][0]
-
-        path = [start_node]
-        current = start_node
-        while edge_map[current]:
-            next_node, _ = edge_map[current].pop()
-            path.append(next_node)
-            current = next_node
-
-        return path
 
