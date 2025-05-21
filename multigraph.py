@@ -186,3 +186,15 @@ class MultiGraph:
     def is_multigraph(self) -> bool:
         """Always True for this implementation."""
         return True
+
+    def draw(self):
+        # convert to a NetworkX graph for drawing
+        import matplotlib.pyplot as plt
+        import networkx as nx
+
+        G = nx.MultiGraph()
+        G.add_nodes_from(self.nodes())
+        G.add_edges_from(self.edges(keys=True))
+        pos = nx.spring_layout(G)
+        nx.draw(G, pos, with_labels=True, node_color="lightblue", edge_color="gray")
+        plt.show()
