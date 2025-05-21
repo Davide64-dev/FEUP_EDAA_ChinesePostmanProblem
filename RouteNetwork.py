@@ -166,9 +166,9 @@ class RouteNetwork:
         circuit.reverse()
         return circuit
 
-    def find_euler_path(self):
+    def find_euler_path(self, visualizer: Visualizer | None = None):
         """Implementation agnostic method to find an Eulerian path."""
-        return self.find_euler_path_hierholzer()
+        return self.find_euler_path_hierholzer(visualizer)
 
     def csp_find_euler_path(self, visualizer: Visualizer | None = None):
         """
@@ -312,4 +312,3 @@ def ilp_find_euler_path(self):
         current = next_node
 
     return path
-
