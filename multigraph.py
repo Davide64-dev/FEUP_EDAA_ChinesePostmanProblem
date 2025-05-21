@@ -187,14 +187,42 @@ class MultiGraph:
         """Always True for this implementation."""
         return True
 
-    def draw(self):
-        # convert to a NetworkX graph for drawing
+    def draw(self, show: bool = True):
+        from collections import defaultdict
+
         import matplotlib.pyplot as plt
         import networkx as nx
 
         G = nx.MultiGraph()
         G.add_nodes_from(self.nodes())
         G.add_edges_from(self.edges(keys=True))
+
         pos = nx.spring_layout(G)
-        nx.draw(G, pos, with_labels=True, node_color="lightblue", edge_color="gray")
-        plt.show()
+        plt.figure(figsize=(8, 6))
+
+        # Draw nodes and labels
+        nx.draw_networkx_nodes(G, pos, node_color="lightblue")
+        nx.draw_networkx_labels(G, pos)
+
+        # Group edges by (u, v) unordered pair for curvature assignment
+        edge_groups = defaultdict(list)
+        for u, v, key in G.edges(keys=True):
+            edge_groups[tuple(sorted((u, v)))].append((u, v, key))
+
+        # Draw edges with normalized curvature per group
+        for group_edges in edge_groups.values():
+            n = len(group_edges)
+            for i, (u, v, _) in enumerate(group_edges):
+                # Spread curvature symmetrically around 0 (e.g., -0.1, 0, 0.1)
+                offset = (i - (n - 1) / 2) * 0.1
+                nx.draw_networkx_edges(
+                    G,
+                    pos,
+                    edgelist=[(u, v)],
+                    connectionstyle=f"arc3,rad={offset}",
+                    edge_color="gray",
+                )
+
+        plt.axis("off")
+        if show:
+            plt.show()
