@@ -237,39 +237,55 @@ class RouteNetwork:
         return path
 
 
-    def simple_approx_eulerian_path(self):
+    def greedy_approx_eulerian_path(self):
         """
-        Simple approximation: 
-        - Pair odd-degree nodes arbitrarily.
-        - Add edges between each pair.
-        - Then find Eulerian path.
+        Approximates an Eulerian path without modifying the graph or adding edges.
+        Performs a greedy walk using unused edges to form a single path.
+        Returns a list of edges in traversal order.
         """
 
         G = self.graph
 
-        # Step 1: Find odd-degree nodes
+        # Track which edges have been used
+        used_edges = set()
+
+        # Choose a starting node
         odd_nodes = [v for v in G.nodes() if G.degree(v) % 2 == 1]
+        current = odd_nodes[0] if odd_nodes else next(iter(G.nodes()))
+        
+        path = []
+        
+        while True:
+            found_edge = False
 
-        # Step 2: Pair nodes in order and add edges
-        # If odd number of odd nodes, this will not be a perfect solution
-        # but usually graphs have even number of odd nodes
-        for i in range(0, len(odd_nodes), 2):
-            if i+1 < len(odd_nodes):
-                u, v = odd_nodes[i], odd_nodes[i+1]
-                # Add an edge between u and v (this is a "virtual" edge if original edge doesn't exist)
-                G.add_edge(u, v)
+            # For MultiGraph, iterate over keys
+            if isinstance(G, nx.MultiGraph) or isinstance(G, nx.MultiDiGraph):
+                for neighbor in G[current]:
+                    for key in G[current][neighbor]:
+                        edge_id = (min(current, neighbor), max(current, neighbor), key)
+                        if edge_id not in used_edges:
+                            used_edges.add(edge_id)
+                            path.append((current, neighbor, key))
+                            current = neighbor
+                            found_edge = True
+                            break
+                    if found_edge:
+                        break
+            else:
+                for neighbor in G.neighbors(current):
+                    edge_id = frozenset((current, neighbor))  # unordered edge id
+                    if edge_id not in used_edges:
+                        used_edges.add(edge_id)
+                        path.append((current, neighbor))
+                        current = neighbor
+                        found_edge = True
+                        break
 
-        # Step 3: Now graph should be Eulerian
-        # Use NetworkX built-in Eulerian path finder
+            if not found_edge:
+                break
 
-        temp = RouteNetwork()
+        return path
 
-        temp.graph = G
-        if temp.check_if_euler_path_exists():
-            path = list(temp.find_euler_path_hierholzer())
-            return path
-        else:
-            # fallback - no Eulerian path possible (very rare here)
-            print("Graph is not Eulerian after simple augmentation.")
-            return []
+
+
 
