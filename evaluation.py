@@ -92,3 +92,23 @@ for j in range(len(figures), 4):
 
 plt.tight_layout()
 plt.show()
+
+# Plot average difference between optimal and approx path lengths vs number of nodes
+avg_diffs = []
+node_counts = []
+
+for idx, data in enumerate(figures):
+    optimal = data[data["Type"] == "Optimal"]["Path Length"].values
+    approx = data[data["Type"] == "Approx"]["Path Length"].values
+    avg_diff = np.mean(approx - optimal)
+    avg_diffs.append(avg_diff)
+    node_counts.append(int(plot_titles[idx].split()[0]))
+
+plt.figure(figsize=(8, 6))
+sns.lineplot(x=node_counts, y=avg_diffs, marker="o")
+plt.title("Average Difference: Approx vs Optimal Path Length by Number of Nodes")
+plt.xlabel("Number of Nodes")
+plt.ylabel("Average Difference (Approx - Optimal)")
+plt.grid(axis="y", linestyle="--", alpha=0.7)
+plt.tight_layout()
+plt.show()
