@@ -2,6 +2,8 @@ import os
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+import seaborn as sns
 
 from RouteNetwork import RouteNetwork
 
@@ -27,12 +29,14 @@ for edge_list in edge_lists:
     plt.show()
 
     # circuit = network.find_euler_path_hierholzer()
-    approx = network.simple_approx_eulerian_path()
+    approx = network.greedy_approx_eulerian_path()
     approx_path_length = len(approx) - 1
 
     # print(circuit)
-    print(approx)
-    print(approx_path_length)
+    print(f"Optimal Path Length: {optimal_path_lenght}")
+    print(f"Approx Path Length: {approx_path_length}")
+    print("Approx Path:")
+    print(approx, end="\n\n")
 
     optimal_path_lengths.append(optimal_path_lenght)
     approx_path_lengths.append(approx_path_length)
@@ -48,28 +52,22 @@ for edge_list in edge_lists:
 # plt.grid()
 # plt.show()
 
-fig = plt.figure(figsize=(10, 6))
-indices = np.arange(len(optimal_path_lengths))
-bar_width = 0.35
+# Prepare data for seaborn
+data = pd.DataFrame(
+    {
+        "Graph Index": np.arange(len(optimal_path_lengths)).tolist() * 2,
+        "Path Length": optimal_path_lengths + approx_path_lengths,
+        "Type": ["Optimal"] * len(optimal_path_lengths)
+        + ["Approx"] * len(approx_path_lengths),
+    }
+)
 
-plt.bar(
-    indices - bar_width / 2,
-    optimal_path_lengths,
-    width=bar_width,
-    label="Optimal Path Length",
-    alpha=0.7,
-)
-plt.bar(
-    indices + bar_width / 2,
-    approx_path_lengths,
-    width=bar_width,
-    label="Approx Path Length",
-    alpha=0.7,
-)
+plt.figure(figsize=(10, 6))
+sns.barplot(data=data, x="Graph Index", y="Path Length", hue="Type", palette="Set2")
+plt.title("Optimal vs Approx Path Length")
 plt.xlabel("Graph Index")
 plt.ylabel("Path Length")
-plt.title("Optimal vs Approx Path Length")
-plt.xticks(indices)
-plt.legend()
-plt.grid(axis="y")
+plt.grid(axis="y", linestyle="--", alpha=0.7)
+plt.legend(title="")
+plt.tight_layout()
 plt.show()
