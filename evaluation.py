@@ -1,5 +1,4 @@
 import os
-import random
 import warnings
 
 import matplotlib.pyplot as plt
@@ -13,6 +12,7 @@ warnings.filterwarnings("ignore")
 
 figures = []
 plot_titles = []
+
 
 for n_nodes in range(5, 21, 5):
     edge_lists = [
@@ -35,15 +35,8 @@ for n_nodes in range(5, 21, 5):
         # plt.title(f"Graph: {edge_list}, Optimal Path Length: {optimal_path_lenght}")
         # plt.show()
 
-        # circuit = network.find_euler_path_hierholzer()
-
-        # TODO: uncomment the following lines when the greedy approximation is correctly implemented
-        # approx = network.greedy_approx_eulerian_path()
-        # approx_path_length = len(approx) - 1
-
-        # TODO: and delete this
-        approx = []
-        approx_path_length = optimal_path_lenght + random.randint(0, 10)
+        approx = network.greedy_approx_eulerian_path()
+        approx_path_length = len(approx) - 1
 
         # print(circuit)
         print(f"Optimal Path Length: {optimal_path_lenght}")
@@ -108,6 +101,42 @@ plt.figure(figsize=(8, 6))
 sns.lineplot(x=node_counts, y=avg_diffs, marker="o")
 plt.title("Average Difference: Approx vs Optimal Path Length by Number of Nodes")
 plt.xlabel("Number of Nodes")
+plt.ylabel("Average Difference (Approx - Optimal)")
+plt.grid(axis="y", linestyle="--", alpha=0.7)
+plt.tight_layout()
+plt.show()
+
+# Collect number of edges and differences for each graph
+edge_counts = []
+diffs = []
+
+i = 0  # reset index for fake_approx_path_lengths
+for n_nodes in range(5, 21, 5):
+    edge_lists = [
+        f for f in os.listdir("./dataset/evaluation") if f.startswith(str(n_nodes))
+    ]
+    edge_lists.sort()
+    edge_lists = sorted(edge_lists, key=lambda x: len(x))
+    for edge_list in edge_lists:
+        network = RouteNetwork.from_edge_list(f"./dataset/evaluation/{edge_list}")
+        n_edges = len(list(network.graph.edges()))
+        optimal_path_length = int(edge_list.split(".")[0].split("_")[2])
+        approx_path_length = len(network.greedy_approx_eulerian_path()) - 1
+        i += 1
+        edge_counts.append(n_edges)
+        diffs.append(approx_path_length - optimal_path_length)
+
+# Group by unique edge counts and compute average difference
+edge_count_to_diffs = {}
+for n_edges, diff in zip(edge_counts, diffs):
+    edge_count_to_diffs.setdefault(n_edges, []).append(diff)
+unique_edge_counts = sorted(edge_count_to_diffs.keys())
+avg_diffs_edges = [np.mean(edge_count_to_diffs[n]) for n in unique_edge_counts]
+
+plt.figure(figsize=(8, 6))
+sns.lineplot(x=unique_edge_counts, y=avg_diffs_edges, marker="o")
+plt.title("Average Difference: Approx vs Optimal Path Length by Number of Edges")
+plt.xlabel("Number of Edges")
 plt.ylabel("Average Difference (Approx - Optimal)")
 plt.grid(axis="y", linestyle="--", alpha=0.7)
 plt.tight_layout()
